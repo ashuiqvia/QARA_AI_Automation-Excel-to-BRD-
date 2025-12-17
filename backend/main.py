@@ -245,21 +245,36 @@ def render_docx(template_bytes: bytes, requirements: list):
     """
     Programmatically build Word document matching brd_updater.py logic.
     Requirements should be grouped structure: [{"form": "...", "requirements": [...]}, ...]
+    
+    IMPORTANT: This function ONLY updates the Functional Requirements table.
+    All other content (DOCUMENT INFORMATION, DOCUMENT HISTORY, etc.) is preserved.
     """
-    # Load template document
+    # Load template document - this preserves ALL content including all tables
     doc = Document(BytesIO(template_bytes))
     
-    # Find or create Functional Requirements table
+    logger.info(f"Loaded template with {len(doc.tables)} tables and {len(doc.paragraphs)} paragraphs")
+    
+    # Find the Functional Requirements table specifically
+    # Look for table with 4 columns and headers: Requirement ID, Section, Description, Status
     target_table = None
-    for table in doc.tables:
+    expected_headers = ['requirement id', 'section', 'description', 'status']
+    
+    for table_idx, table in enumerate(doc.tables):
         if len(table.rows) > 0 and len(table.columns) == 4:
             headers = [cell.text.strip().lower() for cell in table.rows[0].cells]
-            if any(h in ['requirement id', 'requirement', 'req id'] for h in headers):
+            # Check if this matches the Functional Requirements table structure
+            # Must have "requirement id" in first column and "section" in second
+            if (len(headers) >= 4 and 
+                'requirement id' in headers[0] and 
+                'section' in headers[1] and
+                'description' in headers[2] and
+                'status' in headers[3]):
                 target_table = table
+                logger.info(f"Found Functional Requirements table at index {table_idx} with headers: {headers}")
                 break
     
-    # If no table found, create one
     if not target_table:
+        logger.warning("Functional Requirements table not found. Searching for insertion point...")
         # Find where to insert (after "Functional Requirements" heading)
         insert_pos = None
         for i, para in enumerate(doc.paragraphs):
@@ -267,22 +282,29 @@ def render_docx(template_bytes: bytes, requirements: list):
                 insert_pos = i + 1
                 break
         
-        # Create table
-        target_table = doc.add_table(rows=1, cols=4)
-        # Set headers
-        headers = ['Requirement ID', 'Section', 'Description', 'Status']
-        for i, header in enumerate(headers):
-            target_table.rows[0].cells[i].text = header
+        if insert_pos:
+            # Create table after the heading
+            target_table = doc.add_table(rows=1, cols=4)
+            # Set headers
+            headers = ['Requirement ID', 'Section', 'Description', 'Status']
+            for i, header in enumerate(headers):
+                target_table.rows[0].cells[i].text = header
+            logger.info("Created new Functional Requirements table")
+        else:
+            raise ValueError("Could not find 'Functional Requirements' section in template")
     else:
-        # Clear existing data rows (keep header)
+        # Clear existing data rows (keep header row only)
         # Remove rows from end to beginning to avoid index issues
+        initial_row_count = len(target_table.rows)
         for i in range(len(target_table.rows) - 1, 0, -1):
             target_table._element.remove(target_table.rows[i]._element)
+        logger.info(f"Cleared {initial_row_count - 1} existing data rows from Functional Requirements table")
     
     # Format header row
     _format_header_row(target_table)
     
     # Process requirements grouped by Form
+    total_reqs = 0
     for group in requirements:
         if isinstance(group, dict) and "requirements" in group:
             form_name = group.get("form", "")
@@ -295,10 +317,12 @@ def render_docx(template_bytes: bytes, requirements: list):
                 # Add requirement rows
                 for req in form_reqs:
                     _add_requirement_row(target_table, req)
+                    total_reqs += 1
     
-    logger.info(f"Rendered table with {len(target_table.rows)} rows")
+    logger.info(f"Rendered Functional Requirements table with {len(target_table.rows)} rows ({total_reqs} requirements)")
+    logger.info(f"Document still has {len(doc.tables)} tables total (all other tables preserved)")
     
-    # Save to BytesIO
+    # Save to BytesIO - this preserves ALL tables and content
     out = BytesIO()
     doc.save(out)
     out.seek(0)
