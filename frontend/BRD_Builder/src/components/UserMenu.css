@@ -1,0 +1,171 @@
+.user-menu-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.user-menu-trigger {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: background-color 0.2s;
+  gap: 4px;
+}
+
+.user-menu-trigger:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.user-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--iqvia-dark-blue, #1976D2);
+  background-color: var(--iqvia-blue-light, #E3F2FD);
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.user-menu-trigger:hover .user-icon {
+  background-color: var(--iqvia-dark-blue, #1976D2);
+  color: white;
+}
+
+.user-name {
+  font-size: 12px;
+  color: var(--text-secondary, #4B5563);
+  font-weight: 500;
+  text-align: center;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: white;
+  border: 1px solid var(--border-color, #D1D5DB);
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  min-width: 240px;
+  z-index: 1000;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.user-menu-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color-light, #E5E7EB);
+}
+
+.user-menu-icon-large {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--iqvia-dark-blue, #1976D2);
+  background-color: var(--iqvia-blue-light, #E3F2FD);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.user-menu-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-menu-username {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #1F2937);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-menu-email {
+  font-size: 12px;
+  color: var(--text-tertiary, #6B7280);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-menu-divider {
+  height: 1px;
+  background-color: var(--border-color-light, #E5E7EB);
+  margin: 0;
+}
+
+.user-menu-options {
+  padding: 8px;
+}
+
+.user-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: none;
+  background: none;
+  color: var(--text-primary, #1F2937);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.user-menu-item:hover {
+  background-color: var(--bg-secondary, #F5F7FA);
+}
+
+.user-menu-item svg {
+  color: var(--text-secondary, #4B5563);
+  flex-shrink: 0;
+}
+
+.user-menu-item:hover svg {
+  color: var(--iqvia-dark-blue, #1976D2);
+}
+
+.user-menu-item-logout {
+  color: #dc3545;
+}
+
+.user-menu-item-logout:hover {
+  background-color: #fee;
+}
+
+.user-menu-item-logout svg {
+  color: #dc3545;
+}
+
+.user-menu-item-logout:hover svg {
+  color: #c82333;
+}
+

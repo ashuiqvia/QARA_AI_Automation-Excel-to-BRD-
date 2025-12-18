@@ -2,21 +2,133 @@ import logging
 import re
 from io import BytesIO
 from typing import Optional
+from pydantic import BaseModel, EmailStr
 
 import pandas as pd # type: ignore 
-from fastapi import FastAPI, UploadFile, File, Form # type: ignore 
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, status, Depends # type: ignore 
 from fastapi.middleware.cors import CORSMiddleware # type: ignore 
 from starlette.responses import StreamingResponse, JSONResponse # type: ignore 
 from docx import Document # type: ignore
 from docx.shared import Pt, RGBColor # type: ignore
 from docx.enum.text import WD_ALIGN_PARAGRAPH # type: ignore
 from docx.oxml import OxmlElement # type: ignore
-from docx.oxml.ns import qn # type: ignore 
+from docx.oxml.ns import qn # type: ignore
+
+# Import authentication and database modules
+from auth import verify_password, get_password_hash, create_access_token, get_current_user
+from database import init_database, create_user, get_user_by_username, get_user_by_email 
 
 # ------------------------------------------------------------------------------
 # App & CORS
 # ------------------------------------------------------------------------------
 app = FastAPI()
+
+# ------------------------------------------------------------------------------
+# Authentication Models
+# ------------------------------------------------------------------------------
+class UserRegister(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+    full_name: Optional[str] = None
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    username: str
+
+# ------------------------------------------------------------------------------
+# Authentication Routes
+# ------------------------------------------------------------------------------
+@app.post("/api/auth/register", response_model=TokenResponse)
+async def register(user_data: UserRegister):
+    """Register a new user."""
+    # Check if username already exists
+    if get_user_by_username(user_data.username):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already exists"
+        )
+    
+    # Check if email already exists
+    if get_user_by_email(user_data.email):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already exists"
+        )
+    
+    # Hash password
+    password_hash = get_password_hash(user_data.password)
+    
+    # Create user
+    success = create_user(
+        username=user_data.username,
+        email=user_data.email,
+        password_hash=password_hash,
+        full_name=user_data.full_name
+    )
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to create user"
+        )
+    
+    # Create access token
+    access_token = create_access_token(data={"sub": user_data.username})
+    
+    return TokenResponse(
+        access_token=access_token,
+        username=user_data.username
+    )
+
+@app.post("/api/auth/login", response_model=TokenResponse)
+async def login(credentials: UserLogin):
+    """Login and get access token."""
+    # Get user from database
+    user = get_user_by_username(credentials.username)
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password"
+        )
+    
+    # Verify password
+    if not verify_password(credentials.password, user["password_hash"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password"
+        )
+    
+    # Create access token
+    access_token = create_access_token(data={"sub": user["username"], "user_id": user["id"]})
+    
+    return TokenResponse(
+        access_token=access_token,
+        username=user["username"]
+    )
+
+@app.get("/api/auth/me")
+async def get_current_user_info(current_user: dict = Depends(get_current_user)):
+    """Get current authenticated user information."""
+    user = get_user_by_username(current_user["username"])
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    return {
+        "id": user["id"],
+        "username": user["username"],
+        "email": user["email"],
+        "full_name": user["full_name"]
+    }
 
 # Health route so you can check server availability
 @app.get("/health")
@@ -61,6 +173,14 @@ logger = logging.getLogger("brd-utility")
 
 @app.on_event("startup")
 async def on_startup():
+    # Initialize database and create tables
+    try:
+        init_database()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {str(e)}")
+        logger.warning("Application will continue, but authentication may not work")
+    
     logger.info("FastAPI started. Listing routes:")
     for r in app.routes:
         logger.info("Route loaded: %s %s", getattr(r, "methods", None), getattr(r, "path", None))
@@ -338,6 +458,7 @@ async def generate_brd(
     template: UploadFile | None = File(None, description="Optional Word template; if absent, server template is used"),
     sheet_name: str | None = Form(None),
     filter_mode: str = Form("none"),  # options: "none" | "final" | "final_or_approved"
+    current_user: dict = Depends(get_current_user),  # Require authentication
 ):
     """
     Accepts the Excel (and optional Word template), generates a BRD docx with

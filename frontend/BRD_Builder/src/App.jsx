@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { saveAs } from 'file-saver';
 import './App.css';
+import Login from './components/Login';
+import UserMenu from './components/UserMenu';
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState('');
   const [activePage, setActivePage] = useState('home'); // 'home' or 'excel-to-brd'
   const [excel, setExcel] = useState(null);
   const [template, setTemplate] = useState(null);
@@ -10,6 +14,51 @@ export default function App() {
   const [sheetName, setSheetName] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [backendStatus, setBackendStatus] = useState('checking');
+
+  // Check authentication on mount
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    const storedUsername = localStorage.getItem('username');
+    
+    if (token && storedUsername) {
+      // Verify token is still valid
+      verifyToken(token).then((isValid) => {
+        if (isValid) {
+          setIsAuthenticated(true);
+          setUsername(storedUsername);
+        } else {
+          // Token invalid, clear storage
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('username');
+        }
+      });
+    }
+  }, []);
+
+  const verifyToken = async (token) => {
+    try {
+      const response = await fetch('http://localhost:8001/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleLoginSuccess = (token, user) => {
+    setIsAuthenticated(true);
+    setUsername(user);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('username');
+    setIsAuthenticated(false);
+    setUsername('');
+  };
 
   // Check backend connection on mount
   React.useEffect(() => {
@@ -34,6 +83,13 @@ export default function App() {
       return;
     }
 
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('You must be logged in to generate documents.');
+      setIsAuthenticated(false);
+      return;
+    }
+
     setIsGenerating(true);
     try {
       const fd = new FormData();
@@ -44,12 +100,23 @@ export default function App() {
 
       const res = await fetch('http://localhost:8001/generate', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
         body: fd,
       });
 
       if (!res.ok) {
         const msg = await res.json().catch(() => ({}));
-        const errorMsg = msg.error || msg.message || res.statusText || 'Unknown error occurred';
+        const errorMsg = msg.error || msg.message || msg.detail || res.statusText || 'Unknown error occurred';
+        
+        // If unauthorized, logout user
+        if (res.status === 401) {
+          handleLogout();
+          alert('Your session has expired. Please login again.');
+          return;
+        }
+        
         alert(`Error: ${errorMsg}\n\nStatus: ${res.status}\nPlease ensure the backend server is running on http://localhost:8001`);
         return;
       }
@@ -69,6 +136,11 @@ export default function App() {
     }
   };
 
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <div className="app-container">
       {/* Header */}
@@ -86,18 +158,7 @@ export default function App() {
             </div>
           </div>
           <div className="header-metrics">
-            <div className="metric">
-              {/*<div className={`metric-value ${backendStatus === 'connected' ? 'status-connected' : backendStatus === 'error' ? 'status-error' : 'status-checking'}`}> */}
-                {/* {backendStatus === 'connected' ? '✓' : backendStatus === 'error' ? '✗' : '...'} */}
-              {/* </div> */}
-              {/* <div className="metric-label metric-label-blue"> */}
-                {/*{backendStatus === 'connected' ? 'Backend Connected' : backendStatus === 'error' ? 'Backend Offline' : 'Checking...'} */}
-              { /* </div> */}
-            </div>
-            <div className="metric">
-              {/* <div className="metric-value metric-value-green">100%</div>
-              <div className="metric-label metric-label-green">Success Rate</div> */}
-            </div>
+            <UserMenu username={username} onLogout={handleLogout} />
           </div>
         </div>
       </header>
