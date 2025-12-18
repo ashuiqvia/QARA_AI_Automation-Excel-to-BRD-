@@ -81,22 +81,22 @@ export default function App() {
               src="https://bayer-itr.icc.solutions.iqvia.com/IQVIA-ITR-CM-Bayer-API/Content/Img/Apollo/iqvia.png?id=Wed%20Dec%2010%202025%2013:30:39%20GMT+0000"
             />
             <div className="header-title">
-              <div className="header-title-main">QARA Team</div>
+              <div className="header-title-main">IQVIA Docuflow</div>
               <div className="header-title-sub">IQVIA - AI‑Powered Automation Solutions</div>
             </div>
           </div>
           <div className="header-metrics">
             <div className="metric">
-              <div className={`metric-value ${backendStatus === 'connected' ? 'status-connected' : backendStatus === 'error' ? 'status-error' : 'status-checking'}`}>
-                {backendStatus === 'connected' ? '✓' : backendStatus === 'error' ? '✗' : '...'}
-              </div>
-              <div className="metric-label metric-label-blue">
-                {backendStatus === 'connected' ? 'Backend Connected' : backendStatus === 'error' ? 'Backend Offline' : 'Checking...'}
-              </div>
+              {/*<div className={`metric-value ${backendStatus === 'connected' ? 'status-connected' : backendStatus === 'error' ? 'status-error' : 'status-checking'}`}> */}
+                {/* {backendStatus === 'connected' ? '✓' : backendStatus === 'error' ? '✗' : '...'} */}
+              {/* </div> */}
+              {/* <div className="metric-label metric-label-blue"> */}
+                {/*{backendStatus === 'connected' ? 'Backend Connected' : backendStatus === 'error' ? 'Backend Offline' : 'Checking...'} */}
+              { /* </div> */}
             </div>
             <div className="metric">
-              <div className="metric-value metric-value-green">100%</div>
-              <div className="metric-label metric-label-green">Success Rate</div>
+              {/* <div className="metric-value metric-value-green">100%</div>
+              <div className="metric-label metric-label-green">Success Rate</div> */}
             </div>
           </div>
         </div>
@@ -106,7 +106,7 @@ export default function App() {
         {/* Sidebar */}
         <aside className="sidebar">
           <div className="sidebar-header">
-            <h2>QARA</h2>
+            <h2>IQVIA DocuFlow</h2>
             <p>Powered by AI Automation</p>
           </div>
           <hr className="sidebar-divider" />
@@ -141,13 +141,13 @@ export default function App() {
             {activePage === 'home' ? (
               <div className="home-container">
                 <div className="welcome-banner">
-                  <h2 className="welcome-title">Welcome to QARA — Powered by AI Automation</h2>
+                  <h2 className="welcome-title">Welcome to IQVIA Docuflow — Powered by AI Automation</h2>
                   <p className="welcome-subtitle">
-                    Automate your workflows with powerful AI-driven tools designed specifically for QARA Team.
+                    Automate your workflows with powerful AI-driven tools
                   </p>
                 </div>
                 <p className="copyright-text">
-                  ©2025 QARA - QA Rapid Automation. Built with React.
+                  ©2025 IQVIA Docuflow - AI Automation
                 </p>
               </div>
             ) : (
@@ -169,7 +169,7 @@ export default function App() {
                 )}
               </div>
 
-              <div className="form-group">
+              {/* <div className="form-group">
                 <label className="form-label">
                   Optional Word Template (.docx)
                 </label>
@@ -187,9 +187,9 @@ export default function App() {
                 <div className="form-hint">
                   If omitted, server uses <code>templates/template.docx</code>.
                 </div>
-              </div>
+              </div> */}
 
-              <div className="form-group">
+              {/* <div className="form-group">
                 <label className="form-label">
                   Sheet Name (Optional)
                 </label>
@@ -197,7 +197,7 @@ export default function App() {
                   type="text"
                   value={sheetName}
                   onChange={(e) => setSheetName(e.target.value)}
-                  placeholder="e.g., Chugai Requirements"
+                  placeholder="e.g., Sheet1"
                   className="form-input"
                 />
               </div>
@@ -215,7 +215,7 @@ export default function App() {
                   <option value="final">Only Status = Final</option>
                   <option value="final_or_approved">Status = Final or Approved</option>
                 </select>
-              </div>
+              </div> */}
 
               <button
                 className="generate-button"
