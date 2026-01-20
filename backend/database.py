@@ -58,7 +58,59 @@ def get_db_connection():
 def init_database():
     """Initialize database and create users table if it doesn't exist."""
     try:
-        conn = get_db_connection()
+        # First, try to connect to the target database
+        try:
+            conn = get_db_connection()
+        except Exception as db_error:
+            # If database doesn't exist, try to create it by connecting to master
+            error_msg = str(db_error).lower()
+            if "cannot open database" in error_msg or "4060" in error_msg:
+                logger.warning(f"Database '{DB_DATABASE}' does not exist. Attempting to create it...")
+                try:
+                    # Connect to master database to create the target database
+                    if USE_WINDOWS_AUTH:
+                        master_conn_str = (
+                            f"DRIVER={{{DB_DRIVER}}};"
+                            f"SERVER={DB_SERVER};"
+                            f"DATABASE=master;"
+                            f"Trusted_Connection=yes;"
+                        )
+                    else:
+                        master_conn_str = (
+                            f"DRIVER={{{DB_DRIVER}}};"
+                            f"SERVER={DB_SERVER};"
+                            f"DATABASE=master;"
+                            f"UID={DB_USERNAME};"
+                            f"PWD={DB_PASSWORD};"
+                        )
+                    
+                    master_conn = pyodbc.connect(master_conn_str, autocommit=True)
+                    master_cursor = master_conn.cursor()
+                    
+                    # Create database if it doesn't exist
+                    create_db_sql = f"""
+                    IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'{DB_DATABASE}')
+                    BEGIN
+                        CREATE DATABASE [{DB_DATABASE}]
+                    END
+                    """
+                    master_cursor.execute(create_db_sql)
+                    master_cursor.close()
+                    master_conn.close()
+                    
+                    logger.info(f"Database '{DB_DATABASE}' created successfully.")
+                    
+                    # Now try to connect to the newly created database
+                    conn = get_db_connection()
+                except Exception as create_error:
+                    logger.error(f"Failed to create database: {str(create_error)}")
+                    logger.error("Please create the database manually using SQL Server Management Studio:")
+                    logger.error(f"  CREATE DATABASE [{DB_DATABASE}]")
+                    raise Exception(f"Cannot create database '{DB_DATABASE}'. Please create it manually or check SQL Server permissions. Error: {str(create_error)}")
+            else:
+                # Re-raise if it's a different error
+                raise
+        
         cursor = conn.cursor()
         
         # Create users table

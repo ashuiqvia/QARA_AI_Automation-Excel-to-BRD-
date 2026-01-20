@@ -47,71 +47,121 @@ class TokenResponse(BaseModel):
 @app.post("/api/auth/register", response_model=TokenResponse)
 async def register(user_data: UserRegister):
     """Register a new user."""
-    # Check if username already exists
-    if get_user_by_username(user_data.username):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already exists"
+    try:
+        # Check if username already exists
+        try:
+            if get_user_by_username(user_data.username):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Username already exists"
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Database error checking username: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Database connection error. Please check your database configuration. Error: {str(e)}"
+            )
+        
+        # Check if email already exists
+        try:
+            if get_user_by_email(user_data.email):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email already exists"
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Database error checking email: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Database connection error. Please check your database configuration. Error: {str(e)}"
+            )
+        
+        # Hash password
+        password_hash = get_password_hash(user_data.password)
+        
+        # Create user
+        try:
+            success = create_user(
+                username=user_data.username,
+                email=user_data.email,
+                password_hash=password_hash,
+                full_name=user_data.full_name
+            )
+        except Exception as e:
+            logger.error(f"Database error creating user: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Database connection error. Please check your database configuration. Error: {str(e)}"
+            )
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to create user"
+            )
+        
+        # Create access token
+        access_token = create_access_token(data={"sub": user_data.username})
+        
+        return TokenResponse(
+            access_token=access_token,
+            username=user_data.username
         )
-    
-    # Check if email already exists
-    if get_user_by_email(user_data.email):
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Unexpected error during registration")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already exists"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(e)}"
         )
-    
-    # Hash password
-    password_hash = get_password_hash(user_data.password)
-    
-    # Create user
-    success = create_user(
-        username=user_data.username,
-        email=user_data.email,
-        password_hash=password_hash,
-        full_name=user_data.full_name
-    )
-    
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to create user"
-        )
-    
-    # Create access token
-    access_token = create_access_token(data={"sub": user_data.username})
-    
-    return TokenResponse(
-        access_token=access_token,
-        username=user_data.username
-    )
 
 @app.post("/api/auth/login", response_model=TokenResponse)
 async def login(credentials: UserLogin):
     """Login and get access token."""
-    # Get user from database
-    user = get_user_by_username(credentials.username)
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password"
+    try:
+        # Get user from database
+        try:
+            user = get_user_by_username(credentials.username)
+        except Exception as e:
+            logger.error(f"Database error during login: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Database connection error. Please check your database configuration. Error: {str(e)}"
+            )
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password"
+            )
+        
+        # Verify password
+        if not verify_password(credentials.password, user["password_hash"]):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password"
+            )
+        
+        # Create access token
+        access_token = create_access_token(data={"sub": user["username"], "user_id": user["id"]})
+        
+        return TokenResponse(
+            access_token=access_token,
+            username=user["username"]
         )
-    
-    # Verify password
-    if not verify_password(credentials.password, user["password_hash"]):
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Unexpected error during login")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(e)}"
         )
-    
-    # Create access token
-    access_token = create_access_token(data={"sub": user["username"], "user_id": user["id"]})
-    
-    return TokenResponse(
-        access_token=access_token,
-        username=user["username"]
-    )
 
 @app.get("/api/auth/me")
 async def get_current_user_info(current_user: dict = Depends(get_current_user)):
