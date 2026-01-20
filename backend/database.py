@@ -12,20 +12,38 @@ load_dotenv()
 logger = logging.getLogger("brd-utility")
 
 # Database configuration - can be set via environment variables
+import platform
+
 DB_SERVER = os.getenv("DB_SERVER", "localhost")
 DB_DATABASE = os.getenv("DB_DATABASE", "IQVIA_DocuFlow")
 DB_USERNAME = os.getenv("DB_USERNAME", "")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-DB_DRIVER = os.getenv("DB_DRIVER", "ODBC Driver 17 for SQL Server")
+
+# Detect OS and set appropriate driver
+# On Linux (Render), use FreeTDS or ODBC Driver 18
+# On Windows, use ODBC Driver 17
+if platform.system() == "Linux":
+    # Linux/Unix systems (Render, Docker, etc.)
+    DB_DRIVER = os.getenv("DB_DRIVER", "ODBC Driver 18 for SQL Server")
+else:
+    # Windows systems
+    DB_DRIVER = os.getenv("DB_DRIVER", "ODBC Driver 17 for SQL Server")
 
 # Use Windows Authentication if username/password not provided
+# Note: Windows Auth doesn't work on Linux, so always use SQL Auth on Linux
 USE_WINDOWS_AUTH = not DB_USERNAME or not DB_PASSWORD
+if platform.system() == "Linux" and USE_WINDOWS_AUTH:
+    # Force SQL Server Authentication on Linux
+    USE_WINDOWS_AUTH = False
+    logger.warning("Windows Authentication not supported on Linux. Using SQL Server Authentication.")
 
 
 def get_connection_string() -> str:
     """Generate connection string for SQL Server."""
-    if USE_WINDOWS_AUTH:
-        # Windows Authentication
+    import platform
+    
+    if USE_WINDOWS_AUTH and platform.system() != "Linux":
+        # Windows Authentication (only on Windows)
         conn_str = (
             f"DRIVER={{{DB_DRIVER}}};"
             f"SERVER={DB_SERVER};"
@@ -33,14 +51,27 @@ def get_connection_string() -> str:
             f"Trusted_Connection=yes;"
         )
     else:
-        # SQL Server Authentication
-        conn_str = (
-            f"DRIVER={{{DB_DRIVER}}};"
-            f"SERVER={DB_SERVER};"
-            f"DATABASE={DB_DATABASE};"
-            f"UID={DB_USERNAME};"
-            f"PWD={DB_PASSWORD};"
-        )
+        # SQL Server Authentication (required on Linux, optional on Windows)
+        if platform.system() == "Linux":
+            # Linux requires additional connection parameters
+            conn_str = (
+                f"DRIVER={{{DB_DRIVER}}};"
+                f"SERVER={DB_SERVER};"
+                f"DATABASE={DB_DATABASE};"
+                f"UID={DB_USERNAME};"
+                f"PWD={DB_PASSWORD};"
+                f"Encrypt=yes;"
+                f"TrustServerCertificate=yes;"
+            )
+        else:
+            # Windows SQL Server Authentication
+            conn_str = (
+                f"DRIVER={{{DB_DRIVER}}};"
+                f"SERVER={DB_SERVER};"
+                f"DATABASE={DB_DATABASE};"
+                f"UID={DB_USERNAME};"
+                f"PWD={DB_PASSWORD};"
+            )
     return conn_str
 
 
