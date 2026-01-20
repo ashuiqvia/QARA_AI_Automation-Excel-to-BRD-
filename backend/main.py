@@ -200,16 +200,39 @@ async def test_parse(excel: UploadFile = File(...), sheet_name: str | None = For
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=400)
 
-# Allow your React dev server (all localhost ports for development)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# CORS configuration - supports both development and production
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+if ENVIRONMENT == "production":
+    # Production: Get allowed origins from environment or use default
+    allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "")
+    if allowed_origins_str:
+        allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
+    else:
+        # Default production origins (update these with your actual frontend URLs)
+        allowed_origins = [
+            "https://your-frontend.vercel.app",
+            "https://your-frontend.netlify.app",
+        ]
+    allow_origin_regex = None
+else:
+    # Development: Allow localhost
+    allowed_origins = [
         "http://localhost:5173",
         "http://localhost:5174",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
-    ],
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
+    ]
+    allow_origin_regex = r"http://(localhost|127\.0\.0\.1):\d+"
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

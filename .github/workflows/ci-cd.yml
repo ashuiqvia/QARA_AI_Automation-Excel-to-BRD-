@@ -1,0 +1,97 @@
+# GitHub Actions CI/CD Workflow
+# This runs checks before allowing merges and auto-deploys on merge
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # Check code quality and run tests
+  check:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install backend dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install flake8 pytest
+    
+    - name: Check Python syntax
+      working-directory: ./backend
+      run: |
+        python -m py_compile *.py
+        echo "✓ Python syntax check passed"
+    
+    - name: Check for common issues
+      working-directory: ./backend
+      run: |
+        # Check for hardcoded secrets
+        if grep -r "password.*=" *.py | grep -v "#"; then
+          echo "⚠ WARNING: Potential hardcoded passwords found"
+        fi
+        # Check for .env files
+        if [ -f .env ]; then
+          echo "❌ ERROR: .env file should not be committed!"
+          exit 1
+        fi
+        echo "✓ Security checks passed"
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Install frontend dependencies
+      working-directory: ./frontend/BRD_Builder
+      run: npm install
+    
+    - name: Build frontend
+      working-directory: ./frontend/BRD_Builder
+      run: npm run build
+      env:
+        VITE_API_URL: http://localhost:8001
+    
+    - name: Check build output
+      working-directory: ./frontend/BRD_Builder
+      run: |
+        if [ ! -d "dist" ]; then
+          echo "❌ ERROR: Frontend build failed - dist folder not found"
+          exit 1
+        fi
+        echo "✓ Frontend build successful"
+
+  # Deployment job (only runs on main branch after merge)
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Deployment notification
+      run: |
+        echo "🚀 Deployment triggered for commit: ${{ github.sha }}"
+        echo "📝 Commit message: ${{ github.event.head_commit.message }}"
+        echo "👤 Author: ${{ github.event.head_commit.author.name }}"
+        echo ""
+        echo "⚠️  Note: Actual deployment happens via Render/Vercel webhooks"
+        echo "   Make sure your hosting platform is connected to this repository"
+

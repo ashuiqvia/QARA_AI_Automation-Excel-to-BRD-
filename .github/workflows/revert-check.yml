@@ -1,0 +1,68 @@
+# Revert Check Workflow
+# Run this manually to check if a deployment can be safely reverted
+
+name: Revert Safety Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_hash:
+        description: 'Commit hash to revert to'
+        required: true
+        type: string
+
+jobs:
+  check-revert:
+    name: Check Revert Safety
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history
+    
+    - name: Check commit exists
+      run: |
+        if ! git cat-file -e "${{ inputs.commit_hash }}" 2>/dev/null; then
+          echo "❌ ERROR: Commit ${{ inputs.commit_hash }} not found"
+          exit 1
+        fi
+        echo "✓ Commit found: ${{ inputs.commit_hash }}"
+    
+    - name: Show commit details
+      run: |
+        echo "📋 Commit Details:"
+        git log -1 --format="%H%n%an%n%ae%n%ad%n%s%n%b" "${{ inputs.commit_hash }}"
+        echo ""
+    
+    - name: Check for database migrations
+      run: |
+        echo "🔍 Checking for database changes..."
+        CURRENT_DB=$(git show HEAD:backend/database.py | grep -i "CREATE TABLE\|ALTER TABLE" || true)
+        TARGET_DB=$(git show "${{ inputs.commit_hash }}:backend/database.py" | grep -i "CREATE TABLE\|ALTER TABLE" || true)
+        
+        if [ "$CURRENT_DB" != "$TARGET_DB" ]; then
+          echo "⚠️  WARNING: Database schema differences detected!"
+          echo "   You may need to run database migrations manually"
+        else
+          echo "✓ No database schema changes detected"
+        fi
+    
+    - name: Show files changed
+      run: |
+        echo "📁 Files changed since target commit:"
+        git diff --name-status "${{ inputs.commit_hash }}" HEAD | head -20
+        echo ""
+    
+    - name: Revert safety summary
+      run: |
+        echo "✅ Revert Safety Check Complete"
+        echo ""
+        echo "To revert to this commit, run:"
+        echo "  git revert ${{ inputs.commit_hash }}..HEAD"
+        echo ""
+        echo "Or create a new commit:"
+        echo "  git reset --hard ${{ inputs.commit_hash }}"
+        echo "  git push --force-with-lease origin main"
+

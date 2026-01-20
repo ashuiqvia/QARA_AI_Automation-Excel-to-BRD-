@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import './Login.css';
 
+// API URL from environment variable or default to localhost
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+
 export default function Login({ onLoginSuccess }) {
   const [isLogin, setIsLogin] = useState(true); // Toggle between login and register
   const [username, setUsername] = useState('');
@@ -21,7 +24,7 @@ export default function Login({ onLoginSuccess }) {
         ? { username, password }
         : { username, email, password, full_name: fullName || null };
 
-      const response = await fetch(`http://localhost:8001${endpoint}`, {
+      const response = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

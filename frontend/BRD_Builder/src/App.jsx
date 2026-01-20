@@ -35,9 +35,12 @@ export default function App() {
     }
   }, []);
 
+  // API URL from environment variable or default to localhost
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+
   const verifyToken = async (token) => {
     try {
-      const response = await fetch('http://localhost:8001/api/auth/me', {
+      const response = await fetch(`${API_URL}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -64,7 +67,7 @@ export default function App() {
   React.useEffect(() => {
     const checkBackend = async () => {
       try {
-        const response = await fetch('http://localhost:8001/health');
+        const response = await fetch(`${API_URL}/health`);
         if (response.ok) {
           setBackendStatus('connected');
         } else {
@@ -98,7 +101,7 @@ export default function App() {
       if (sheetName) fd.append('sheet_name', sheetName);
       fd.append('filter_mode', filterMode);
 
-      const res = await fetch('http://localhost:8001/generate', {
+      const res = await fetch(`${API_URL}/generate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -1,0 +1,30 @@
+# Render.com deployment configuration
+# This file configures automatic deployment from GitHub
+
+services:
+  - type: web
+    name: iqvia-docuflow-backend
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: cd backend && pip install -r requirements.txt
+    startCommand: cd backend && python -m uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DB_SERVER
+        sync: false  # Set manually in Render dashboard
+      - key: DB_DATABASE
+        value: IQVIA_DocuFlow
+      - key: DB_USERNAME
+        sync: false  # Set manually in Render dashboard
+      - key: DB_PASSWORD
+        sync: false  # Set manually in Render dashboard
+      - key: DB_DRIVER
+        value: ODBC Driver 17 for SQL Server
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        sync: false  # Set manually with your frontend URL
+
